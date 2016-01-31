@@ -116,6 +116,8 @@ class DSA815Command
 			## DSA815 send too much bytes (2 bytes for a parity?)
 			file.truncate(size)
 
+			# DSA815 entered REMOTE mode now
+			# back to LOCAL mode
 			socket << " :SYST:COMM:BRMT OFF\n"
 		ensure
 			socket.close
