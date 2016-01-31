@@ -1,0 +1,132 @@
+#!ruby -v
+
+require "socket"
+require "pathname"
+require "tempfile"
+require "optparse"
+require "logger"
+
+class DSA815Command
+	def self.run(argv)
+		self.new.load_rc.option(argv).run
+	end
+
+	def initialize(opts={})
+		@logger = Logger.new($stdout)
+		@logger.level = Logger::INFO
+		@opts = {
+			host: '192.168.0.12',
+			port: 5555,
+			format: 'png',
+		}.update(opts)
+	end
+
+	def load_rc
+		rc = Pathname("~/.#{File.basename(__FILE__)}rc").expand_path
+		@logger.debug "rc file: #{rc}"
+		if rc.exist?
+			binding.eval(rc.read, rc.to_s)
+		end
+		self
+	end
+
+	def option(argv)
+		OptionParser.new do |o|
+			o.banner = <<-EOB.gsub(/^\t+/, "")
+				Usage: #{$0} [opts]
+
+			EOB
+
+			o.separator ""
+
+			o.separator "Options:"
+			o.on("-h", "--host HOSTNAME", "Host name") do |v|
+				@opts[:host] = v
+			end
+
+			o.on("--format FORMAT", "Output file format: png,bmp") do |v|
+				@opts[:format] = v
+			end
+
+			o.on("--debug") do |v|
+				@logger.level = Logger::DEBUG
+			end
+
+			argv = o.parse(argv)
+			@dest = argv.shift
+		end
+		self
+	end
+
+	def run
+		@logger.debug @opts
+		dest = dest_path(@opts[:format])
+		file = download()
+
+		puts "Writing #{dest}..."
+		if @opts[:format] == 'bmp'
+			FileUtils.mv(file.path, dest)
+		else
+			system('convert', file.path, dest.to_s)
+			system('optipng', dest.to_s)
+		end
+		puts "Done"
+	end
+
+	def dest_path(default_ext="bin")
+		if @dest
+			@dest
+		else
+			require "readline"
+			Readline.completion_proc = Readline::FILENAME_COMPLETION_PROC
+			dest = Pathname.pwd + Time.now.strftime("%Y%m%d_%H%m%s_%L.#{default_ext}")
+			name = Readline.readline("Save to [#{dest}]: ")
+			unless name.empty?
+				unless name =~ /\....$/
+					name = name + ".#{default_ext}"
+				end
+				dest = dest.parent + name
+			end
+			dest
+		end
+	end
+
+	def download()
+		file = Tempfile.new([File.basename($0), '.bmp'])
+		puts "Reading... (from #{@opts[:host]}:#{@opts[:port]})"
+
+		socket = TCPSocket.new(@opts[:host], @opts[:port])
+		begin
+			socket << " *IDN?\n"
+			idn = socket.readpartial(4096)
+			puts idn
+			socket << " :PRIV:SNAP?\n"
+
+			## header : "#9001152066"
+			#   001152066 is size of bitmap file
+			header = socket.readpartial(11)
+			size = header[/^#9(\d+)/, 1].to_i
+
+			buf = ""
+			while file.tell < size
+				file << socket.readpartial(4096, buf)
+				print "% 3d%% (%d/%d)\r" % [file.tell / size.to_f * 100, file.tell, size]
+			end
+
+			## DSA815 send too much bytes (2 bytes for a parity?)
+			file.truncate(size)
+
+			socket << " :SYST:COMM:BRMT OFF\n"
+		ensure
+			socket.close
+		end
+
+		puts "Done"
+
+		file.close
+		file
+	end
+end
+
+DSA815Command.run(ARGV)
+
