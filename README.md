@@ -19,3 +19,8 @@ dsa815 --host=192.168.0.10 --format=png
 # ~/.dsa815rc
 @opts[:host] = '192.168.0.72'
 ```
+
+## Ref.
+
+ * dns-sd -B _lxi._tcp / dns-sd -B _scpi-raw._tcp
+ * http://hostname/lxi/identification (is announcing port number) invalid xml
