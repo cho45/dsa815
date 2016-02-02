@@ -15,7 +15,7 @@ class DSA815Command
 		@logger = Logger.new($stdout)
 		@logger.level = Logger::INFO
 		@opts = {
-			host: '192.168.0.12',
+			host: 'rigollan_3.local',
 			port: 5555,
 			format: 'png',
 		}.update(opts)
