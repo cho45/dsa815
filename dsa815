@@ -113,7 +113,7 @@ class DSA815Command
 				print "% 3d%% (%d/%d)\r" % [file.tell / size.to_f * 100, file.tell, size]
 			end
 
-			## DSA815 send too much bytes (2 bytes for a parity?)
+			# DSA815 send too much bytes (" \n")
 			file.truncate(size)
 
 			# DSA815 entered REMOTE mode now
