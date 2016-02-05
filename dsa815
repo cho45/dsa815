@@ -68,8 +68,8 @@ class DSA815Command
 		if @opts[:setdatetime]
 			connect do |socket|
 				time = Time.now
-				socket << " :SYSTEM:DATE #{time.strftime("%Y,%m,%d")}\n"
-				socket << " :SYSTEM:TIME #{time.strftime("%H,%M,%S")}\n"
+				socket << ":SYSTEM:DATE #{time.strftime("%Y,%m,%d")}\n"
+				socket << ":SYSTEM:TIME #{time.strftime("%H,%M,%S")}\n"
 			end
 			return
 		end
@@ -110,17 +110,18 @@ class DSA815Command
 		puts "Reading... (from #{@opts[:host]}:#{@opts[:port]})"
 
 		connect do |socket|
-			socket << " *IDN?\n"
+			socket << "*IDN?\n"
 			idn = socket.readpartial(4096)
 			puts idn
 
-			# save current cont mode
-			socket << " :INIT:CONT?\n"
-			cont = socket.gets.chomp
+#			# save current cont mode
+#			socket << ":INIT:CONT?\n"
+#			cont = socket.gets.chomp
+#			# set cont mode to off for speed
+#			socket << ":INIT:CONT 0\n"
 
-			# set cont mode to off for speed
-			socket << " :INIT:CONT 0\n"
-			socket << " :PRIV:SNAP?\n"
+			# snapshot
+			socket << ":PRIV:SNAP?\n"
 
 			## header : "#9001152066"
 			#   001152066 is size of bitmap file
@@ -136,12 +137,13 @@ class DSA815Command
 			# DSA815 send too much bytes (" \n")
 			file.truncate(size)
 
-			# set cont mode
-			socket << " :INIT:CONT #{cont}\n"
+#			# set cont mode
+#			socket << ":INIT:CONT #{cont}\n"
 
 			# DSA815 entered REMOTE mode now
 			# back to LOCAL mode
-			socket << " :SYST:COMM:BRMT OFF\n"
+			socket << ":SYST:COMM:BRMT OFF\n"
+			socket.flush
 		end
 
 		puts "Done"
@@ -152,9 +154,13 @@ class DSA815Command
 
 	def connect(&block)
 		socket = TCPSocket.new(@opts[:host], @opts[:port])
-		block.call(socket)
-	ensure
-		socket.close
+		begin
+			block.call(socket)
+		rescue => e
+			p e
+		ensure
+			socket.close
+		end
 	end
 end
 

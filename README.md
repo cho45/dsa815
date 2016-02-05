@@ -20,6 +20,11 @@ dsa815 --host=192.168.0.10 --format=png
 @opts[:host] = '192.168.0.72'
 ```
 
+# Firmware version
+
+Firmware 1.15 does not respond to dns-sd by default.
+So you must specify ip address or set mDNSDiscovery option.
+
 ## Ref.
 
  * dns-sd -B _lxi._tcp / dns-sd -B _scpi-raw._tcp
