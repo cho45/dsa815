@@ -18,6 +18,7 @@ class DSA815Command
 			host: 'rigollan_3.local',
 			port: 5555,
 			format: 'png',
+			fast: true,
 		}.update(opts)
 	end
 
@@ -52,6 +53,10 @@ class DSA815Command
 				@opts[:setdatetime] = true
 			end
 
+			o.on("--nofast", "disable fast mode") do
+				@opts[:fast] = false
+			end
+
 			o.on("--debug") do |v|
 				@logger.level = Logger::DEBUG
 			end
@@ -68,8 +73,9 @@ class DSA815Command
 		if @opts[:setdatetime]
 			connect do |socket|
 				time = Time.now
-				socket << ":SYSTEM:DATE #{time.strftime("%Y,%m,%d")}\n"
-				socket << ":SYSTEM:TIME #{time.strftime("%H,%M,%S")}\n"
+				socket << ":SYSTEM:DATE #{time.strftime("%Y,%m,%d")}\r\n"
+				socket << ":SYSTEM:TIME #{time.strftime("%H,%M,%S")}\r\n"
+				sleep 1
 			end
 			return
 		end
@@ -110,18 +116,21 @@ class DSA815Command
 		puts "Reading... (from #{@opts[:host]}:#{@opts[:port]})"
 
 		connect do |socket|
-			socket << "*IDN?\n"
-			idn = socket.readpartial(4096)
-			puts idn
+			socket.sync = true
 
-#			# save current cont mode
-#			socket << ":INIT:CONT?\n"
-#			cont = socket.gets.chomp
-#			# set cont mode to off for speed
-#			socket << ":INIT:CONT 0\n"
+			if @opts[:fast]
+				# save current cont mode
+				socket << ":INIT:CONT?\r\n"
+				cont = socket.gets.chomp
+				# set cont mode to off for speed
+				socket << ":INIT:CONT 0\r\n"
+				sleep 1
+			end
+
+			cont = 1
 
 			# snapshot
-			socket << ":PRIV:SNAP?\n"
+			socket << ":PRIV:SNAP?\r\n"
 
 			## header : "#9001152066"
 			#   001152066 is size of bitmap file
@@ -137,13 +146,15 @@ class DSA815Command
 			# DSA815 send too much bytes (" \n")
 			file.truncate(size)
 
-#			# set cont mode
-#			socket << ":INIT:CONT #{cont}\n"
+			if @opts[:fast]
+				# set cont mode
+				socket << ":INIT:CONT #{cont}\r\n"
+			end
 
 			# DSA815 entered REMOTE mode now
 			# back to LOCAL mode
-			socket << ":SYST:COMM:BRMT OFF\n"
-			socket.flush
+			socket << ":SYST:COMM:BRMT 0\r\n"
+			sleep 1
 		end
 
 		puts "Done"
