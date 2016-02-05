@@ -18,7 +18,7 @@ class DSA815Command
 			host: 'rigollan_3.local',
 			port: 5555,
 			format: 'png',
-			fast: true,
+			fast: false,
 		}.update(opts)
 	end
 
@@ -53,6 +53,9 @@ class DSA815Command
 				@opts[:setdatetime] = true
 			end
 
+			o.on("--fast", "fast mode") do
+				@opts[:fast] = true
+			end
 			o.on("--nofast", "disable fast mode") do
 				@opts[:fast] = false
 			end
@@ -124,10 +127,7 @@ class DSA815Command
 				cont = socket.gets.chomp
 				# set cont mode to off for speed
 				socket << ":INIT:CONT 0\r\n"
-				sleep 1
 			end
-
-			cont = 1
 
 			# snapshot
 			socket << ":PRIV:SNAP?\r\n"
@@ -149,6 +149,7 @@ class DSA815Command
 			if @opts[:fast]
 				# set cont mode
 				socket << ":INIT:CONT #{cont}\r\n"
+				sleep 1
 			end
 
 			# DSA815 entered REMOTE mode now
