@@ -48,6 +48,10 @@ class DSA815Command
 				@opts[:format] = v
 			end
 
+			o.on("--setdatetime", "set datetime") do
+				@opts[:setdatetime] = true
+			end
+
 			o.on("--debug") do |v|
 				@logger.level = Logger::DEBUG
 			end
@@ -60,6 +64,16 @@ class DSA815Command
 
 	def run
 		@logger.debug @opts
+
+		if @opts[:setdatetime]
+			connect do |socket|
+				time = Time.now
+				socket << " :SYSTEM:DATE #{time.strftime("%Y,%m,%d")}\n"
+				socket << " :SYSTEM:TIME #{time.strftime("%H,%M,%S")}\n"
+			end
+			return
+		end
+
 		dest = dest_path(@opts[:format])
 		file = download()
 
@@ -95,11 +109,17 @@ class DSA815Command
 		file = Tempfile.new([File.basename($0), '.bmp'])
 		puts "Reading... (from #{@opts[:host]}:#{@opts[:port]})"
 
-		socket = TCPSocket.new(@opts[:host], @opts[:port])
-		begin
+		connect do |socket|
 			socket << " *IDN?\n"
 			idn = socket.readpartial(4096)
 			puts idn
+
+			# save current cont mode
+			socket << " :INIT:CONT?\n"
+			cont = socket.gets.chomp
+
+			# set cont mode to off for speed
+			socket << " :INIT:CONT 0\n"
 			socket << " :PRIV:SNAP?\n"
 
 			## header : "#9001152066"
@@ -116,17 +136,25 @@ class DSA815Command
 			# DSA815 send too much bytes (" \n")
 			file.truncate(size)
 
+			# set cont mode
+			socket << " :INIT:CONT #{cont}\n"
+
 			# DSA815 entered REMOTE mode now
 			# back to LOCAL mode
 			socket << " :SYST:COMM:BRMT OFF\n"
-		ensure
-			socket.close
 		end
 
 		puts "Done"
 
 		file.close
 		file
+	end
+
+	def connect(&block)
+		socket = TCPSocket.new(@opts[:host], @opts[:port])
+		block.call(socket)
+	ensure
+		socket.close
 	end
 end
 
